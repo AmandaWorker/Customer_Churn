@@ -6,6 +6,7 @@ import shap
 import joblib
 import os
 from pathlib import Path
+import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -38,7 +39,7 @@ def import_data(pth):
     
 
 
-def perform_eda(df, cat_columns=None, quant_columns=None, new_col_logic=None):
+def perform_eda(df, output_path, cat_columns=None, quant_columns=None, new_col_logic=None):
     '''
     perform eda on df and save figures to images folder
     input:
@@ -51,7 +52,6 @@ def perform_eda(df, cat_columns=None, quant_columns=None, new_col_logic=None):
     print("The number of null values per columns is:", df.isnull().sum())
     print("Here is a description of the dataframe:", df.describe())
     
-    os.makedirs('images', exist_ok=True)
     
     # Optional column creation
     if new_col_logic:
@@ -62,7 +62,9 @@ def perform_eda(df, cat_columns=None, quant_columns=None, new_col_logic=None):
         plt.figure(figsize=(20,10)) 
         df[new_col_name].hist();
         plt.title(f'Distribution of {new_col_name}')
-        plt.savefig(f'images/{new_col_name}_hist.png')
+        
+        filename = os.path.join(output_path, f"{new_col_name}_hist.png")
+        plt.savefig(filename)
         plt.close()
         
     if quant_columns:
@@ -70,14 +72,17 @@ def perform_eda(df, cat_columns=None, quant_columns=None, new_col_logic=None):
             plt.figure(figsize=(20, 10))
             sns.histplot(df[col].dropna(), kde=True)
             plt.title(f'Distribution of {col}')
-            plt.savefig(f'images/{col}_hist.png')
+            
+            filename = os.path.join(output_path, f"{col}_hist.png")
+            plt.savefig(filename)
             plt.close()
             
         for col in quant_columns:
             plt.figure(figsize=(20,10))
             sns.histplot(df[col], stat='density', kde=True)
             plt.title(f'kde plot of {col}')
-            plt.savefig(f'images/{col}_kde.png')
+            filename = os.path.join(output_path, f"{col}_kde.png")
+            plt.savefig(filename)
             plt.close()
             
     if cat_columns:
@@ -86,12 +91,15 @@ def perform_eda(df, cat_columns=None, quant_columns=None, new_col_logic=None):
             df[col].value_counts('normalize').plot(kind='bar')
             plt.title(f'Bar plot of {col}')
             plt.xticks(rotation=45)
-            plt.savefig(f'images/{col}_bar.png')
+            filename = os.path.join(output_path, f"{col}_bar.png")
+            plt.savefig(filename)
             plt.close()
             
     plt.figure(figsize=(20,10)) 
     sns.heatmap(df.corr(), annot=False, cmap='Dark2_r', linewidths = 2)
-    plt.savefig(f'images/correlation_heatmap.png')
+    
+    filename = os.path.join(output_path, "correlation_heatmap.png")
+    plt.savefig(filename)
     plt.close()
     
 
@@ -151,7 +159,7 @@ def classification_report_image(y_train,
                                  y_train_preds_rf,
                                  y_test_preds_lr,
                                  y_test_preds_rf,
-                                 output_path=Path('images/results')):
+                                 output_path):
     '''
     Generates and saves classification reports as images for both models.
 
@@ -204,50 +212,6 @@ def classification_report_image(y_train,
         
 
 
-
-def train_models(X_train, X_test, y_train, y_test, output_path):
-    '''
-    train, store model results: stored models
-    input:
-              X_train: X training data
-              X_test: X testing data
-              y_train: y training data
-              y_test: y testing data
-    output:
-              None
-    '''
-    
-    output_path = Path(output_path)  # Ensure output_path is a Path object
-    if not output_path.exists():
-        output_path.mkdir(parents=True)
-
-    # grid search
-    rfc = RandomForestClassifier(random_state=42)
-    lrc = LogisticRegression(solver='lbfgs', max_iter=3000)
-
-    param_grid = { 
-        'n_estimators': [200, 500],
-        'max_features': ['auto', 'sqrt'],
-        'max_depth' : [4, 5, 100],
-        'criterion' : ['gini', 'entropy']
-    }
-
-    cv_rfc = GridSearchCV(estimator=rfc, param_grid=param_grid, cv=5)
-    cv_rfc.fit(X_train, y_train)
-
-    lrc.fit(X_train, y_train)
-
-    y_train_preds_rf = cv_rfc.best_estimator_.predict(X_train)
-    y_test_preds_rf = cv_rfc.best_estimator_.predict(X_test)
-
-    y_train_preds_lr = lrc.predict(X_train)
-    y_test_preds_lr = lrc.predict(X_test)
-    
-    # save best model
-    joblib.dump(cv_rfc.best_estimator_, output_path / 'rfc_model.pkl')
-    joblib.dump(lrc, output_path / 'logistic_model.pkl')
-    
-    
     
 def model_plots(rfc_model, lr_model, X_test, y_test, output_path):
     '''
@@ -277,17 +241,15 @@ def model_plots(rfc_model, lr_model, X_test, y_test, output_path):
     plt.title('ROC Curve Comparison')
     plt.tight_layout()
 
-    # Create directory if it doesn't exist
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-
     # Save the figure
-    plt.savefig(output_path / "roc_curve.png")
+    filename = os.path.join(output_path, "roc_curve.png")
+    plt.savefig(filename)
     plt.close()
     
 
     
     
-def feature_importance_plot(model, X_data, output_pth):
+def feature_importance_plot(model, X_data, output_path):
     '''
     creates and stores the feature importances in pth
     input:
@@ -298,4 +260,102 @@ def feature_importance_plot(model, X_data, output_pth):
     output:
              None
     '''
-    pass
+    # Calculate feature importances
+    importances = model.feature_importances_
+    # Sort feature importances in descending order
+    indices = np.argsort(importances)[::-1]
+
+    # Rearrange feature names so they match the sorted feature importances
+    names = [X_data.columns[i] for i in indices]
+
+    # Create plot
+    plt.figure(figsize=(20,5))
+
+    # Create plot title
+    plt.title("Feature Importance")
+    plt.ylabel('Importance')
+
+    # Add bars
+    plt.bar(range(X_data.shape[1]), importances[indices])
+
+    # Add feature names as x-axis labels
+    plt.xticks(range(X_data.shape[1]), names, rotation=90);
+    
+    # Save the figure
+    filename = os.path.join(output_path, "feature_importance.png")
+    plt.savefig(filename)
+    plt.close()
+    
+    # Plot the explainer
+    explainer = shap.TreeExplainer(model)
+    shap_values = explainer.shap_values(X_data)
+#     shap.summary_plot(shap_values, X_data, plot_type="bar")
+    
+    fig = shap.summary_plot(shap_values, X_data, plot_type="bar", show=False)
+    filename = os.path.join(output_path, "shap_summary.png")
+    plt.savefig(filename)
+    
+    
+    
+def train_models(X_train, X_test, y_train, y_test, output_path):
+    '''
+    train, store model results: stored models
+    input:
+              X_train: X training data
+              X_test: X testing data
+              y_train: y training data
+              y_test: y testing data
+    output:
+              None
+    '''
+    
+#     output_path = Path(output_path)  # Ensure output_path is a Path object
+        
+    # Ensure the subdirectories exist for results and models
+    results_path = Path(os.path.join(output_path, "images/results"))
+    model_path = Path(os.path.join(output_path, "models"))
+
+
+    # grid search
+    rfc = RandomForestClassifier(random_state=42)
+    lrc = LogisticRegression(solver='lbfgs', max_iter=3000)
+
+    param_grid = { 
+        'n_estimators': [200, 500],
+        'max_features': ['auto', 'sqrt'],
+        'max_depth' : [4, 5, 100],
+        'criterion' : ['gini', 'entropy']
+    }
+
+    cv_rfc = GridSearchCV(estimator=rfc, param_grid=param_grid, cv=5)
+    cv_rfc.fit(X_train, y_train)
+
+    lrc.fit(X_train, y_train)
+
+    y_train_preds_rf = cv_rfc.best_estimator_.predict(X_train)
+    y_test_preds_rf = cv_rfc.best_estimator_.predict(X_test)
+
+    y_train_preds_lr = lrc.predict(X_train)
+    y_test_preds_lr = lrc.predict(X_test)
+    
+
+    # Call classification report function
+    classification_report_image(y_train,
+                                 y_test,
+                                 y_train_preds_lr,
+                                 y_train_preds_rf,
+                                 y_test_preds_lr,
+                                 y_test_preds_rf,
+                                 results_path)
+    
+    # Call the model_plots function
+    model_plots(cv_rfc.best_estimator_, lrc, X_test, y_test, results_path)
+    
+    # Call feature importance function
+    feature_importance_plot(cv_rfc.best_estimator_, X_test, results_path)
+    
+    # save best model
+    joblib.dump(cv_rfc.best_estimator_, model_path / 'rfc_model.pkl')
+    joblib.dump(lrc, model_path / 'logistic_model.pkl')
+    
+    
