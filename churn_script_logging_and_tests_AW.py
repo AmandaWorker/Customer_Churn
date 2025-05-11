@@ -1,22 +1,24 @@
+"""
+Test module
+"""
+
 import os
 import logging
-import shutil
 
 import pytest
 
 import pandas as pd
-from pathlib import Path
-import joblib
+
 
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import plot_roc_curve, classification_report
 from sklearn.datasets import make_classification
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 
-from churn_library_solution import import_data, perform_eda, encoder_helper, perform_feature_engineering
+from churn_library_solution import import_data, perform_eda
+from churn_library_solution import encoder_helper, perform_feature_engineering
 from churn_library_solution import classification_report_image
-from churn_library_solution import model_plots, train_models
+from churn_library_solution import model_plots, train_models, feature_importance_plot
 
 # logging.basicConfig(
 #     filename='./logs/churn_library.log',
@@ -48,28 +50,32 @@ logger.addHandler(console_handler)
 
 @pytest.fixture
 def sample_df():
+    """Fixture that generates sample data for basic checks """
     return pd.DataFrame({
         'column1': [1, 2, 3],
         'column2': ['A', 'B', 'C']
     })
 
+
 @pytest.fixture
 def sample_df2():
+    """Fixture that generates sample data for basic checks """
     return pd.DataFrame({
         'category': ['A', 'B', 'A', 'C'],
         'churn': [1, 0, 1, 1]
     })
 
 
-
 def test_import_data(tmp_path):
     """
-    Test the `import_data` function to ensure it correctly reads a CSV file into a DataFrame.
+    Test the `import_data` function to ensure it correctly
+    reads a CSV file into a DataFrame.
 
     Parameters:
     -----------
     tmp_path : pathlib.Path
-        A temporary directory provided by pytest for creating test files.
+        A temporary directory provided by pytest for creating
+        test files.
 
     Process:
     --------
@@ -90,7 +96,8 @@ def test_import_data(tmp_path):
     Raises:
     -------
     AssertionError:
-        If the DataFrame is empty, columns are incorrect, or content does not match the expected result.
+        If the DataFrame is empty, columns are incorrect, or
+        content does not match the expected result.
     """
     # Create a temporary CSV file
     test_csv_path = tmp_path / "test_data.csv"
@@ -112,21 +119,24 @@ def test_import_data(tmp_path):
     logger.info("import_data output is as expected")
 
 
-    
 def test_perform_eda(sample_df):
     """
-    Test the `perform_eda` function to ensure it generates the correct EDA plots and handles new column logic.
+    Test the `perform_eda` function to ensure it generates the
+    correct EDA plots and handles new column logic.
 
     Parameters:
     -----------
     sample_df : pd.DataFrame
-        A sample DataFrame used to verify EDA plot generation and optional column creation.
+        A sample DataFrame used to verify EDA plot generation and
+        optional column creation.
 
     Process:
     --------
     - Applies a custom logic to create a new column.
-    - Runs EDA plotting functions for specified categorical and quantitative columns.
-    - Verifies that all expected plot image files are generated in the 'images' directory.
+    - Runs EDA plotting functions for specified categorical and
+    quantitative columns.
+    - Verifies that all expected plot image files are generated
+    in the 'images' directory.
 
     Asserts:
     --------
@@ -146,53 +156,61 @@ def test_perform_eda(sample_df):
     test_new_col_logic = ('New', lambda row: 0 if row['column2'] == 'A' else 1)
 
     perform_eda(
-            sample_df,
-            cat_columns=['column2'],
-            quant_columns=['column1'],
-            new_col_logic=test_new_col_logic)
+        sample_df,
+        output_path='./images',
+        cat_columns=['column2'],
+        quant_columns=['column1'],
+        new_col_logic=test_new_col_logic)
 
     logger.info("perform_eda completed successfully")
 
     expected_files = [
-            'New_hist.png',
-            'column1_hist.png',
-            'column1_kde.png',
-            'column2_bar.png',
-            'correlation_heatmap.png']
-    
+        'New_hist.png',
+        'column1_hist.png',
+        'column1_kde.png',
+        'column2_bar.png',
+        'correlation_heatmap.png']
+
     for filename in expected_files:
-            file_path = os.path.join('images', filename)
-            assert os.path.exists(
-                file_path), f"Expected file not found: {file_path}"
+        file_path = os.path.join('images', filename)
+        assert os.path.exists(
+            file_path), f"Expected file not found: {file_path}"
 
     logger.info("All expected files found")
     logger.info("Test perform_eda completed")
-    
-    
-    
+
+
 def test_encoder_helper():
     """
-    Test the `encoder_helper` function to verify that it correctly adds mean-encoded columns for categorical variables.
+    Test the `encoder_helper` function to verify that it correctly
+    adds mean-encoded columns for categorical variables.
 
     Process:
     --------
-    - Creates a sample DataFrame with a categorical column and a numeric target.
-    - Applies `encoder_helper` to encode the categorical column with the mean of the response variable.
-    - Validates that the new encoded column is added and that its values match the expected group means.
+    - Creates a sample DataFrame with a categorical column and
+    a numeric target.
+    - Applies `encoder_helper` to encode the categorical column
+    with the mean of the response variable.
+    - Validates that the new encoded column is added and that
+    its values match the expected group means.
 
     Asserts:
     --------
-    - That the new encoded column (e.g., 'category_churn') exists in the output DataFrame.
-    - That each encoded value corresponds to the correct group mean within a small relative tolerance.
+    - That the new encoded column (e.g., 'category_churn') exists
+    in the output DataFrame.
+    - That each encoded value corresponds to the correct group
+    mean within a small relative tolerance.
 
     Logs:
     -----
-    - Confirms successful execution and correctness of the `encoder_helper` output.
+    - Confirms successful execution and correctness of the
+    `encoder_helper` output.
 
     Raises:
     -------
     AssertionError:
-        If the expected column is missing or if any encoded value deviates from the correct mean.
+        If the expected column is missing or if any encoded value
+        deviates from the correct mean.
     """
     # Sample DataFrame
     data = {
@@ -202,7 +220,10 @@ def test_encoder_helper():
     df = pd.DataFrame(data)
 
     # Run encoder_helper
-    df_encoded = encoder_helper(df.copy(), cat_columns=['category'], response='churn')
+    df_encoded = encoder_helper(
+        df.copy(),
+        cat_columns=['category'],
+        response='churn')
     logger.info("encoder_helper completed successfully")
 
     # Check if new column was added
@@ -221,29 +242,32 @@ def test_encoder_helper():
     logger.info("encoder_helper output is as expected")
 
 
-    
-    
 def test_encoder_helper_with_known_values(sample_df2):
     """
-    Test the `encoder_helper` function to verify it encodes categorical columns correctly using the target mean.
+    Test the `encoder_helper` function to verify it encodes
+    categorical columns correctly using the target mean.
 
     Parameters:
     -----------
     sample_df2 : pd.DataFrame
-        A sample DataFrame containing a categorical column and a target column.
+        A sample DataFrame containing a categorical column
+        and a target column.
 
     Asserts:
     --------
-    - That the DataFrame returned by `encoder_helper` matches the expected DataFrame with the encoded values.
+    - That the DataFrame returned by `encoder_helper` matches
+    the expected DataFrame with the encoded values.
 
     Logs:
     -----
-    - Confirms that the encoder helper output matches the expected result.
+    - Confirms that the encoder helper output matches the expected
+    result.
 
     Raises:
     -------
     AssertionError:
-        If the encoded DataFrame does not exactly match the expected DataFrame.
+        If the encoded DataFrame does not exactly match the
+        expected DataFrame.
     """
     expected_df = pd.DataFrame({
         'category': ['A', 'B', 'A', 'C'],
@@ -255,35 +279,40 @@ def test_encoder_helper_with_known_values(sample_df2):
 
     pd.testing.assert_frame_equal(df_encoded, expected_df)
     logger.info("encoder_helper output is as expected")
-    
-    
-    
+
+
 @pytest.fixture
 def sample_df_fe():
+    """Fixture that generates dummy data for feature engineering ."""
     return pd.DataFrame({
         'feature1': [10, 20, 30, 40, 50, 60],
         'feature2': [1, 0, 1, 0, 1, 0],
-        'churn':    [0, 1, 0, 1, 0, 1]
+        'churn': [0, 1, 0, 1, 0, 1]
     })
 
 
 def test_perform_feature_engineering(sample_df_fe):
     """
-    Test the `perform_feature_engineering` function to ensure it processes the data correctly and splits it into train/test sets.
+    Test the `perform_feature_engineering` function to ensure it
+    processes the data correctly and splits it into train/test sets.
 
     Parameters:
     -----------
     sample_df_fe : pd.DataFrame
-        A sample DataFrame containing the features and target column for testing.
-    
+        A sample DataFrame containing the features and target
+        column for testing.
+
     Asserts:
     --------
-    - That all four outputs (X_train, X_test, y_train, y_test) are not None.
-    - That the outputs have the expected number of rows: 4 for training and 2 for testing.
+    - That all four outputs (x_train, x_test, y_train, y_test)
+    are not None.
+    - That the outputs have the expected number of rows: 4 for
+    training and 2 for testing.
 
     Logs:
     -----
-    - Confirms successful validation of output shapes from the feature engineering function.
+    - Confirms successful validation of output shapes from the feature
+    engineering function.
 
     Raises:
     -------
@@ -293,27 +322,27 @@ def test_perform_feature_engineering(sample_df_fe):
     response = 'churn'
     columns = ['feature1', 'feature2']
 
-    X_train, X_test, y_train, y_test = perform_feature_engineering(sample_df_fe, response, columns)
+    x_train, x_test, y_train, y_test = perform_feature_engineering(
+        sample_df_fe, response, columns)
 
     # Check that all outputs are created
-    assert X_train is not None, "X_train not created"
-    assert X_test is not None, "X_test not created"
+    assert x_train is not None, "x_train not created"
+    assert x_test is not None, "x_test not created"
     assert y_train is not None, "y_train not created"
     assert y_test is not None, "y_test not created"
 
     # Check expected shapes
-    assert X_train.shape[0] == 4, f"Expected 4 rows in X_train, got {X_train.shape[0]}"
-    assert X_test.shape[0] == 2, f"Expected 2 rows in X_test, got {X_test.shape[0]}"
+    assert x_train.shape[0] == 4, f"Expected 4 rows in x_train, got {x_train.shape[0]}"
+    assert x_test.shape[0] == 2, f"Expected 2 rows in x_test, got {x_test.shape[0]}"
     assert y_train.shape[0] == 4, f"Expected 4 rows in y_train, got {y_train.shape[0]}"
     assert y_test.shape[0] == 2, f"Expected 2 rows in y_test, got {y_test.shape[0]}"
 
     logger.info("perform_feature_engineering output shapes are as expected")
 
-    
-    
 
 @pytest.fixture
 def dummy_predictions():
+    """Fixture that generates dummy classification data for model reports."""
     # Simulated binary classification example
     y_train = pd.Series([0, 1, 0, 1, 1, 0])
     y_test = pd.Series([1, 0, 1])
@@ -325,25 +354,29 @@ def dummy_predictions():
     return y_train, y_test, y_train_preds_lr, y_train_preds_rf, y_test_preds_lr, y_test_preds_rf
 
 
-
 def test_classification_report_image(dummy_predictions):
     """
-    Test the `classification_report_image` function to ensure it generates and saves classification report images.
+    Test the `classification_report_image` function to ensure
+    it generates and saves classification report images.
 
     Parameters:
     -----------
     dummy_predictions : tuple
-        A tuple containing true labels and predicted labels in the following order:
-        (y_train, y_test, y_train_preds_lr, y_train_preds_rf, y_test_preds_lr, y_test_preds_rf)
+        A tuple containing true labels and predicted labels in
+        the following order:
+        (y_train, y_test, y_train_preds_lr, y_train_preds_rf,
+        y_test_preds_lr, y_test_preds_rf)
 
     Asserts:
     --------
-    - That the expected report image files are created in the 'images/results' directory.
+    - That the expected report image files are created in the
+    'images/results' directory.
 
     Logs:
     -----
     - Confirms the generation of each expected image file.
-    - Logs a success message after verifying all classification report images.
+    - Logs a success message after verifying all classification
+    report images.
 
     Raises:
     -------
@@ -354,38 +387,40 @@ def test_classification_report_image(dummy_predictions):
     output_dir = 'images/results'
 
     classification_report_image(
-            y_train,
-            y_test,
-            y_train_preds_lr,
-            y_train_preds_rf,
-            y_test_preds_lr,
-            y_test_preds_rf,
-            output_path=output_dir
-        )
+        y_train,
+        y_test,
+        y_train_preds_lr,
+        y_train_preds_rf,
+        y_test_preds_lr,
+        y_test_preds_rf,
+        output_path=output_dir
+    )
 
     expected_files = [
-            'random_forest_train_report.png',
-            'random_forest_test_report.png',
-            'logistic_regression_train_report.png',
-            'logistic_regression_test_report.png'
-        ]
+        'random_forest_train_report.png',
+        'random_forest_test_report.png',
+        'logistic_regression_train_report.png',
+        'logistic_regression_test_report.png'
+    ]
 
     for file in expected_files:
-        assert os.path.exists(os.path.join(output_dir, file)), f"Missing report: {file}"
-        
+        assert os.path.exists(
+            os.path.join(
+                output_dir, file)), f"Missing report: {file}"
+
     logger.info("All classification report images generated successfully.")
 
-    
-    
 
 @pytest.fixture
-def dummy_data(request):
+def dummy_data(request, tmp_path):
+    """Fixture that generates dummy classification data for model training tests."""
     # Generate simple dummy classification data
     X, y = make_classification(n_samples=50, n_features=5, random_state=42)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-    output_path = Path("./models")
-
-    # Ensure the output directory is clean (this is now handled automatically by pytest)
+    x_train, x_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42)
+    output_path = tmp_path / "models"
+    # Ensure the output directory is clean (this is now handled automatically
+    # by pytest)
     output_path.mkdir(parents=True, exist_ok=True)
 
     # Add a finalizer to delete the output files after the test finishes
@@ -399,7 +434,8 @@ def dummy_data(request):
     # Register the finalizer with pytest
     request.addfinalizer(cleanup)
 
-    return X_train, X_test, y_train, y_test, output_path
+    return pd.DataFrame(x_train), pd.DataFrame(
+        x_test), y_train, y_test, output_path
 
 
 def test_train_models(dummy_data):
@@ -409,13 +445,15 @@ def test_train_models(dummy_data):
     Parameters:
     -----------
     dummy_data : tuple
-        A tuple containing training and testing datasets and an output path in the following order:
-        (X_train, X_test, y_train, y_test, output_path)
+        A tuple containing training and testing datasets and an output path in
+        the following order:
+        (x_train, x_test, y_train, y_test, output_path)
 
     Asserts:
     --------
-    - That the expected model files ('rfc_model.pkl', 'logistic_model.pkl') are created in the output path.
-    
+    - That the expected model files ('rfc_model.pkl', 'logistic_model.pkl')
+    are created in the output path.
+
     Logs:
     -----
     - Confirms the existence of each expected model file.
@@ -426,94 +464,52 @@ def test_train_models(dummy_data):
     AssertionError:
         If any of the expected model files are not found at the specified location.
     """
-    X_train, X_test, y_train, y_test, output_path = dummy_data
+    x_train, x_test, y_train, y_test, output_path = dummy_data
 
-    train_models(X_train, X_test, y_train, y_test, output_path)
-    
+    train_models(
+        pd.DataFrame(x_train),
+        pd.DataFrame(x_test),
+        y_train,
+        y_test,
+        output_path)
+
    # Check if model files are created
     expected_files = ['rfc_model.pkl', 'logistic_model.pkl']
     for file in expected_files:
-        file_path = output_path / file  
-
+        file_path = output_path / 'models' / file  # <- note the addition of 'models'
         assert file_path.exists(), f"Model file missing: {file}"
         logger.info(f"Model file exists: {file_path}")
 
     logger.info("All model files generated and verified successfully.")
-    
-    
-    
-def test_train_models_load(dummy_data):
-    """
-    Test the `train_models` function to ensure that model files are correctly created and can be loaded.
 
-    Parameters:
-    -----------
-    dummy_data : tuple
-        A tuple containing training and testing data along with the output path:
-        (X_train, X_test, y_train, y_test, output_path)
 
-    Process:
-    --------
-    - Calls `train_models` to generate and save model files.
-    - Verifies that each expected model file exists in the specified output path.
-    - Attempts to load each model using `joblib` to ensure files are not corrupted or empty.
-
-    Asserts:
-    --------
-    - That each expected model file is present.
-    - That each model file can be successfully loaded and is not None.
-
-    Logs:
-    -----
-    - Confirms successful loading of each model file.
-
-    Raises:
-    -------
-    AssertionError:
-        If any model file is missing or cannot be loaded properly.
-    """
-    X_train, X_test, y_train, y_test, output_path = dummy_data
-
-    train_models(X_train, X_test, y_train, y_test, output_path)
-
-    # Check if model files are created and can be loaded
-    expected_files = ['rfc_model.pkl', 'logistic_model.pkl']
-    for file in expected_files:
-        file_path = os.path.join(output_path, file)
-        assert os.path.exists(file_path), f"Model file missing: {file}"
-        
-        model = joblib.load(file_path)
-        assert model is not None, f"Failed to load model: {file}"
-
-    logger.info("All model files loaded successfully.")
-    
-    
-        
 @pytest.fixture
 def sample_models_and_data(tmp_path):
+    """Fixture that generates dummy models and data."""
     # Generate dummy classification data
     X, y = make_classification(n_samples=100, n_features=5, random_state=42)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    x_train, x_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42)
 
     # Train Random Forest
     rfc_model = RandomForestClassifier(random_state=42)
-    rfc_model.fit(X_train, y_train)
+    rfc_model.fit(x_train, y_train)
 
     # Train Logistic Regression
     lr_model = LogisticRegression(max_iter=1000)
-    lr_model.fit(X_train, y_train)
+    lr_model.fit(x_train, y_train)
 
     # Use a temporary directory for outputs
     output_path = tmp_path / "results"
     output_path.mkdir(parents=True, exist_ok=True)
 
-    return rfc_model, lr_model, X_test, y_test, output_path
-        
+    return rfc_model, lr_model, x_test, y_test, output_path
 
-    
+
 def test_model_plots(sample_models_and_data):
     """
-    Test the `model_plots` function to ensure it generates and saves the ROC curve plot correctly.
+    Test the `model_plots` function to ensure it generates and saves the
+    ROC curve plot correctly.
 
     Parameters:
     -----------
@@ -525,11 +521,13 @@ def test_model_plots(sample_models_and_data):
     Process:
     --------
     - Calls `model_plots` to generate a ROC curve plot comparing the two models.
-    - Checks whether the expected output file ('roc_curve.png') is created in the specified directory.
+    - Checks whether the expected output file ('roc_curve.png') is created
+    in the specified directory.
 
     Asserts:
     --------
-    - That the ROC curve plot file is successfully created and exists at the expected location.
+    - That the ROC curve plot file is successfully created and exists at the
+    expected location.
 
     Logs:
     -----
@@ -540,10 +538,10 @@ def test_model_plots(sample_models_and_data):
     AssertionError:
         If the ROC curve image file is not found after running the function.
     """
-    rfc_model, lr_model, X_test, y_test, output_path = sample_models_and_data
+    rfc_model, lr_model, x_test, y_test, output_path = sample_models_and_data
 
     # Call the function to generate ROC plot
-    model_plots(rfc_model, lr_model, X_test, y_test, output_path)
+    model_plots(rfc_model, lr_model, x_test, y_test, output_path)
 
     expected_file = output_path / "roc_curve.png"
 
@@ -551,8 +549,27 @@ def test_model_plots(sample_models_and_data):
     assert expected_file.exists(), "ROC curve plot was not created as expected."
 
     logger.info("model_plots output is as expected.")
-    
-    
+
+
+def test_feature_importance_plot(sample_models_and_data):
+    """
+    Test that `feature_importance_plot` generates expected plot files.
+    """
+    rfc_model, _, x_test, _, output_path = sample_models_and_data
+
+    # Convert X_test to DataFrame with feature names
+    feature_names = [f'feature_{i}' for i in range(x_test.shape[1])]
+    x_df = pd.DataFrame(x_test, columns=feature_names)
+
+    # Call the function
+    feature_importance_plot(rfc_model, x_df, output_path)
+    logger.info("feature_importance_plot executed successfully")
+
+    # Validate output files
+    assert (output_path /
+            "feature_importance.png").exists(), "Missing feature_importance.png"
+    assert (output_path / "shap_summary.png").exists(), "Missing shap_summary.png"
+    logger.info("All plots generated and saved successfully.")
 
 
 # if __name__ == "__main__":

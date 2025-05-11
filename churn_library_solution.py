@@ -315,6 +315,9 @@ def train_models(X_train, X_test, y_train, y_test, output_path):
     results_path = Path(os.path.join(output_path, "images/results"))
     model_path = Path(os.path.join(output_path, "models"))
 
+    # Ensure directories exist
+    results_path.mkdir(parents=True, exist_ok=True)
+    model_path.mkdir(parents=True, exist_ok=True)
 
     # grid search
     rfc = RandomForestClassifier(random_state=42)
